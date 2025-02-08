@@ -1,7 +1,13 @@
 package main
 
 import (
+	"database/sql"
+	"fmt"
+	"log"
+	"os"
+
 	"github.com/gin-gonic/gin"
+	_ "github.com/lib/pq"
 )
 
 type WireMessage struct {
@@ -16,6 +22,23 @@ type WireMessage struct {
 }
 
 func main() {
+	// Get the environment variable
+	password := os.Getenv("DB_PASSWORD")
+	connStr := fmt.Sprintf("postgres://postgres:%s@localhost:5432/pillar_bank?sslmode=disable", password)
+
+	// Open database connection
+	db, err := sql.Open("postgres", connStr)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+
+	// Test the connection
+	err = db.Ping()
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	router := gin.Default()
 
 	// Wire message routes
