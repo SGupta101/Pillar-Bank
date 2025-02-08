@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
@@ -17,7 +19,7 @@ type WireMessage struct {
 	SenderAN    string `json:"sender_an"`
 	ReceiverRTN string `json:"receiver_rtn"`
 	ReceiverAN  string `json:"receiver_an"`
-	Amount      string `json:"amount"`
+	Amount      int    `json:"amount"`
 	RawMessage  string `json:"message"`
 }
 
@@ -47,6 +49,42 @@ func main() {
 	router.POST("/wire-messages", postWireMessage)   // Create new wire message
 
 	router.Run("localhost:8080")
+}
+
+// parseWireMessage parses a wire message string and returns a WireMessage struct
+func parseWireMessage(message string) WireMessage {
+	wireMessage := WireMessage{}
+	parts := strings.Split(message, ";")
+
+	for _, part := range parts {
+		keyValue := strings.Split(part, "=")
+		if len(keyValue) != 2 {
+			continue
+		}
+
+		key := strings.TrimSpace(keyValue[0])
+		value := strings.TrimSpace(keyValue[1])
+
+		switch key {
+		case "SEQ":
+			seqNum, _ := strconv.Atoi(value)
+			wireMessage.Seq = seqNum
+		case "SENDER_RTN":
+			wireMessage.SenderRTN = value
+		case "SENDER_AN":
+			wireMessage.SenderAN = value
+		case "RECEIVER_RTN":
+			wireMessage.ReceiverRTN = value
+		case "RECEIVER_AN":
+			wireMessage.ReceiverAN = value
+		case "AMOUNT":
+			amount, _ := strconv.Atoi(value)
+			wireMessage.Amount = amount
+		case "MESSAGE":
+			wireMessage.RawMessage = value
+		}
+	}
+	return wireMessage
 }
 
 // getWireMessages responds with the list of all wire messages as JSON
