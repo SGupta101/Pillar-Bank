@@ -5,35 +5,27 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"strconv"
 	"strings"
-	"time"
 	"unicode"
+
+	"pillar-bank/models"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
 )
 
-type WireMessage struct {
-	ID          int       `json:"id"`
-	Seq         int       `json:"seq"`
-	SenderRTN   string    `json:"sender_rtn"`
-	SenderAN    string    `json:"sender_an"`
-	ReceiverRTN string    `json:"receiver_rtn"`
-	ReceiverAN  string    `json:"receiver_an"`
-	Amount      int       `json:"amount"`
-	RawMessage  string    `json:"message"`
-	CreatedAt   time.Time `json:"created_at"`
-}
-
 type Handler struct {
 	db *sql.DB
 }
 
+func handleError(c *gin.Context, status int, message string) {
+	log.Printf("Error: %s", message)
+	c.IndentedJSON(status, gin.H{"error": message})
+}
+
 func main() {
-	password := os.Getenv("DB_PASSWORD")
-	connStr := fmt.Sprintf("postgres://postgres:%s@localhost:5432/pillar_bank?sslmode=disable", password)
+	connStr := "postgres://postgres@localhost:5432/pillar_bank?sslmode=disable"
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -74,8 +66,8 @@ func isInt(s string) bool {
 	return true
 }
 
-func parseWireMessage(message string) (WireMessage, error) {
-	wireMessage := WireMessage{}
+func parseWireMessage(message string) (models.WireMessage, error) {
+	wireMessage := models.WireMessage{}
 	parts := strings.Split(message, ";")
 
 	if len(parts) != 6 {
@@ -92,37 +84,42 @@ func parseWireMessage(message string) (WireMessage, error) {
 		value := strings.TrimSpace(keyValue[1])
 
 		switch key {
-		case "SEQ":
+		case "seq":
 			if !isInt(value) {
 				return wireMessage, fmt.Errorf("invalid SEQ format: must be numeric")
 			}
 			seqNum, _ := strconv.Atoi(value)
 			wireMessage.Seq = seqNum
-		case "SENDER_RTN":
+		case "sender_rtn":
 			if !isInt(value) || len(value) != 9 {
 				return wireMessage, fmt.Errorf("invalid RTN format: must be exactly 9 digits")
 			}
 			wireMessage.SenderRTN = value
-		case "SENDER_AN":
+		case "sender_an":
 			if !isInt(value) {
 				return wireMessage, fmt.Errorf("invalid AN format: must be numeric")
 			}
 			wireMessage.SenderAN = value
-		case "RECEIVER_RTN":
+		case "receiver_rtn":
 			if !isInt(value) || len(value) != 9 {
 				return wireMessage, fmt.Errorf("invalid RTN format: must be exactly 9 digits")
 			}
 			wireMessage.ReceiverRTN = value
-		case "RECEIVER_AN":
+		case "receiver_an":
 			if !isInt(value) {
 				return wireMessage, fmt.Errorf("invalid AN format: must be numeric")
 			}
 			wireMessage.ReceiverAN = value
-		case "AMOUNT":
+		case "amount":
 			if !isInt(value) {
 				return wireMessage, fmt.Errorf("invalid amount format: must be numeric")
 			}
 			amount, _ := strconv.Atoi(value)
+
+			if amount < 0 {
+				return wireMessage, fmt.Errorf("invalid amount format: must be positive")
+			}
+
 			wireMessage.Amount = amount
 		}
 	}
@@ -143,23 +140,23 @@ func (h *Handler) postWireMessage(c *gin.Context) {
 	}
 
 	if err := c.ShouldBindJSON(&request); err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		handleError(c, http.StatusBadRequest, "Invalid request format")
 		return
 	}
 
 	wireMessage, err := parseWireMessage(request.Message)
 	if err != nil {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		handleError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	exists, err := h.sequenceNumberExists(wireMessage.Seq)
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to check sequence number: %v", err)})
+		handleError(c, http.StatusInternalServerError, fmt.Sprintf("failed to check sequence number: %v", err))
 		return
 	}
 	if exists {
-		c.IndentedJSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("sequence number %d already exists", wireMessage.Seq)})
+		handleError(c, http.StatusBadRequest, fmt.Sprintf("duplicate sequence number %d", wireMessage.Seq))
 		return
 	}
 
@@ -169,7 +166,7 @@ func (h *Handler) postWireMessage(c *gin.Context) {
 	err = h.db.QueryRow(query, wireMessage.Seq, wireMessage.SenderRTN, wireMessage.SenderAN, wireMessage.ReceiverRTN, wireMessage.ReceiverAN, wireMessage.Amount, wireMessage.RawMessage).Scan(&wireMessage.ID, &wireMessage.CreatedAt)
 
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to insert wire message: %v", err)})
+		handleError(c, http.StatusInternalServerError, fmt.Sprintf("failed to insert wire message: %v", err))
 		return
 	}
 
@@ -177,12 +174,18 @@ func (h *Handler) postWireMessage(c *gin.Context) {
 }
 
 func (h *Handler) getWireMessages(c *gin.Context) {
-	var wireMessages []WireMessage
-	limit := 10
+	var wireMessages []models.WireMessage
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 
 	if err != nil || page < 0 {
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Invalid page number"})
+		handleError(c, http.StatusBadRequest, "Invalid page number")
+		return
+	}
+
+	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
+	if err != nil || limit < 0 {
+		handleError(c, http.StatusBadRequest, "Invalid limit number")
+		return
 	}
 
 	offset := (page - 1) * limit
@@ -190,16 +193,16 @@ func (h *Handler) getWireMessages(c *gin.Context) {
 	rows, err := h.db.Query(query, limit, offset)
 
 	if err != nil {
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		var wm WireMessage
+		var wm models.WireMessage
 		err := rows.Scan(&wm.ID, &wm.Seq, &wm.SenderRTN, &wm.SenderAN, &wm.ReceiverRTN, &wm.ReceiverAN, &wm.Amount, &wm.RawMessage, &wm.CreatedAt)
 		if err != nil {
-			c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			handleError(c, http.StatusInternalServerError, err.Error())
 			return
 		}
 		wireMessages = append(wireMessages, wm)
@@ -214,13 +217,12 @@ func (h *Handler) getWireMessages(c *gin.Context) {
 }
 
 func (h *Handler) getWireMessage(c *gin.Context) {
-	var wireMessage WireMessage
+	var wireMessage models.WireMessage
 	seq := c.Param("seq")
 
 	seqNum, err := strconv.Atoi(seq)
 	if err != nil {
-		fmt.Printf("conversion error: %v\n", err)
-		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Invalid sequence number format"})
+		handleError(c, http.StatusBadRequest, "Invalid sequence number format")
 		return
 	}
 
@@ -232,10 +234,10 @@ func (h *Handler) getWireMessage(c *gin.Context) {
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			c.IndentedJSON(http.StatusNotFound, gin.H{"error": "Wire message not found"})
+			handleError(c, http.StatusNotFound, "Wire message not found")
 			return
 		}
-		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		handleError(c, http.StatusInternalServerError, err.Error())
 		return
 	}
 
