@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -24,6 +25,11 @@ type WireMessage struct {
 	RawMessage  string `json:"message"`
 }
 
+// Add the Handler struct
+type Handler struct {
+	db *sql.DB
+}
+
 func main() {
 	// Get the environment variable
 	password := os.Getenv("DB_PASSWORD")
@@ -42,12 +48,24 @@ func main() {
 		log.Fatal(err)
 	}
 
+	// Create a new handler with the db connection
+	h := &Handler{
+		db: db,
+	}
+
 	router := gin.Default()
 
-	// Wire message routes
-	router.GET("/wire-messages", getWireMessages)    // Get all wire messages
-	router.GET("/wire-messages/:id", getWireMessage) // Get single wire message
-	router.POST("/wire-messages", postWireMessage)   // Create new wire message
+	// Add a simple health check endpoint
+	router.GET("/health", func(c *gin.Context) {
+		c.IndentedJSON(http.StatusOK, gin.H{
+			"message": "API is working",
+		})
+	})
+
+	// Wire message routes - now using handler methods
+	router.GET("/wire-messages", h.getWireMessages)
+	router.GET("/wire-messages/:id", h.getWireMessage)
+	router.POST("/wire-messages", h.postWireMessage)
 
 	router.Run("localhost:8080")
 }
@@ -115,12 +133,48 @@ func parseWireMessage(message string) (WireMessage, error) {
 	return wireMessage, nil
 }
 
-// getWireMessages responds with the list of all wire messages as JSON
-func getWireMessages(c *gin.Context) {}
+func (h *Handler) sequenceNumberExists(seq int) (bool, error) {
+	var exists bool
+	err := h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM wire_messages WHERE seq = $1)", seq).Scan(&exists)
+	return exists, err
+}
 
-// getWireMessage locates the wire message whose Seq matches the seq
-// parameter sent by the client, then returns that wire message as JSON
-func getWireMessage(c *gin.Context) {}
+// Convert postWireMessage to a handler method
+func (h *Handler) postWireMessage(c *gin.Context) {
+	var request struct {
+		Message string `json:"message"`
+	}
 
-// postWireMessage adds a new wire message from JSON received in the request body
-func postWireMessage(c *gin.Context) {}
+	if err := c.ShouldBindJSON(&request); err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	// Parse the wire message string
+	wireMessage, err := parseWireMessage(request.Message)
+	if err != nil {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	exists, err := h.sequenceNumberExists(wireMessage.Seq)
+	if err != nil {
+		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("failed to check sequence number: %v", err)})
+		return
+	}
+	if exists {
+		c.IndentedJSON(http.StatusConflict, gin.H{"error": fmt.Sprintf("sequence number %d already exists", wireMessage.Seq)})
+		return
+	}
+
+	c.IndentedJSON(http.StatusCreated, wireMessage)
+}
+
+// Convert other handlers to methods too
+func (h *Handler) getWireMessages(c *gin.Context) {
+	// Implement this method
+}
+
+func (h *Handler) getWireMessage(c *gin.Context) {
+	// Implement this method
+}
