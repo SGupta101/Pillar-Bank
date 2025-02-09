@@ -178,8 +178,16 @@ func (h *Handler) postWireMessage(c *gin.Context) {
 
 func (h *Handler) getWireMessages(c *gin.Context) {
 	var wireMessages []WireMessage
-	query := "SELECT * FROM wire_messages;"
-	rows, err := h.db.Query(query)
+	limit := 10
+	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
+
+	if err != nil || page < 0 {
+		c.IndentedJSON(http.StatusBadRequest, gin.H{"error": "Invalid page number"})
+	}
+
+	offset := (page - 1) * limit
+	query := "SELECT * FROM wire_messages ORDER BY seq ASC LIMIT $1 OFFSET $2"
+	rows, err := h.db.Query(query, limit, offset)
 
 	if err != nil {
 		c.IndentedJSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
