@@ -7,6 +7,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"unicode"
 
 	"github.com/gin-gonic/gin"
 	_ "github.com/lib/pq"
@@ -51,8 +52,17 @@ func main() {
 	router.Run("localhost:8080")
 }
 
-// parseWireMessage parses a wire message string and returns a WireMessage struct
-func parseWireMessage(message string) WireMessage {
+func isInt(s string) bool {
+	for _, c := range s {
+		if !unicode.IsDigit(c) {
+			return false
+		}
+	}
+	return true
+}
+
+// parseWireMessage parses a wire message string and returns a WireMessage struct and error
+func parseWireMessage(message string) (WireMessage, error) {
 	wireMessage := WireMessage{}
 	parts := strings.Split(message, ";")
 
@@ -67,24 +77,42 @@ func parseWireMessage(message string) WireMessage {
 
 		switch key {
 		case "SEQ":
+			if !isInt(value) {
+				return wireMessage, fmt.Errorf("invalid SEQ format: must be numeric")
+			}
 			seqNum, _ := strconv.Atoi(value)
 			wireMessage.Seq = seqNum
 		case "SENDER_RTN":
+			if !isInt(value) || len(value) != 9 {
+				return wireMessage, fmt.Errorf("invalid RTN format: must be exactly 9 digits")
+			}
 			wireMessage.SenderRTN = value
 		case "SENDER_AN":
+			if !isInt(value) {
+				return wireMessage, fmt.Errorf("invalid AN format: must be numeric")
+			}
 			wireMessage.SenderAN = value
 		case "RECEIVER_RTN":
+			if !isInt(value) || len(value) != 9 {
+				return wireMessage, fmt.Errorf("invalid RTN format: must be exactly 9 digits")
+			}
 			wireMessage.ReceiverRTN = value
 		case "RECEIVER_AN":
+			if !isInt(value) {
+				return wireMessage, fmt.Errorf("invalid AN format: must be numeric")
+			}
 			wireMessage.ReceiverAN = value
 		case "AMOUNT":
+			if !isInt(value) {
+				return wireMessage, fmt.Errorf("invalid amount format: must be numeric")
+			}
 			amount, _ := strconv.Atoi(value)
 			wireMessage.Amount = amount
-		case "MESSAGE":
-			wireMessage.RawMessage = value
 		}
 	}
-	return wireMessage
+
+	wireMessage.RawMessage = message
+	return wireMessage, nil
 }
 
 // getWireMessages responds with the list of all wire messages as JSON
