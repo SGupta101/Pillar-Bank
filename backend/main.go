@@ -20,7 +20,6 @@ type Handler struct {
 }
 
 func handleError(c *gin.Context, status int, message string) {
-	log.Printf("Error: %s", message)
 	c.IndentedJSON(status, gin.H{"error": message})
 }
 

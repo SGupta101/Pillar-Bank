@@ -46,18 +46,25 @@ func setupTestDB() *sql.DB {
 		log.Fatal(err)
 	}
 
-	// Clean the database
-	_, err = db.Exec("TRUNCATE wire_messages RESTART IDENTITY")
-	if err != nil {
-		log.Fatal(err)
-	}
-
 	return db
+}
+
+func cleanTestDB(db *sql.DB) error {
+	_, err := db.Exec("TRUNCATE wire_messages RESTART IDENTITY")
+	return err
 }
 
 func TestPostWireMessage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := &Handler{db: setupTestDB()}
+	db := setupTestDB()
+
+	// Clean the database before posting messages
+	err := cleanTestDB(db)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	h := &Handler{db: db}
 	router := gin.Default()
 	router.POST("/wire-messages", h.postWireMessage)
 
@@ -95,4 +102,44 @@ func TestPostWireMessage(t *testing.T) {
 			assert.JSONEq(t, tt.ExpectedError, w.Body.String(), "response body mismatch")
 		})
 	}
+}
+
+func TestGetWireMessage(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &Handler{db: setupTestDB()}
+	router := gin.Default()
+	router.GET("/wire-messages/:seq", h.getWireMessage)
+
+	t.Run("Get existing wire message", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/wire-messages/5", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response models.WireMessage
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+
+		// We know this message exists from TestPostWireMessage
+		expectedMessage := testdata.ValidMessages[0].Expected
+		assert.Equal(t, expectedMessage.Seq, response.Seq)
+		assert.Equal(t, expectedMessage.SenderRTN, response.SenderRTN)
+		assert.Equal(t, expectedMessage.SenderAN, response.SenderAN)
+		assert.Equal(t, expectedMessage.ReceiverRTN, response.ReceiverRTN)
+		assert.Equal(t, expectedMessage.ReceiverAN, response.ReceiverAN)
+		assert.Equal(t, expectedMessage.Amount, response.Amount)
+	})
+
+	// Test getting a non-existent message
+	t.Run("Get non-existent wire message", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/wire-messages/999", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusNotFound, w.Code)
+		assert.JSONEq(t, `{"error": "Wire message not found"}`, w.Body.String())
+	})
+}
+
+func TestGetWireMessages(t *testing.T) {
 }
