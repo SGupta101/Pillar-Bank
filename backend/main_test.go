@@ -108,10 +108,10 @@ func TestGetWireMessage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := &Handler{db: setupTestDB()}
 	router := gin.Default()
-	router.GET("/wire-messages/:seq", h.getWireMessage)
+	router.GET("/wire-message/:seq", h.getWireMessage)
 
 	t.Run("Get existing wire message", func(t *testing.T) {
-		req, _ := http.NewRequest(http.MethodGet, "/wire-messages/5", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/wire-message/5", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -132,7 +132,7 @@ func TestGetWireMessage(t *testing.T) {
 
 	// Test getting a non-existent message
 	t.Run("Get non-existent wire message", func(t *testing.T) {
-		req, _ := http.NewRequest(http.MethodGet, "/wire-messages/999", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/wire-message/999", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 

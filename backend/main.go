@@ -50,7 +50,7 @@ func main() {
 	})
 
 	router.GET("/wire-messages", h.getWireMessages)
-	router.GET("/wire-messages/:seq", h.getWireMessage)
+	router.GET("/wire-message/:seq", h.getWireMessage)
 	router.POST("/wire-messages", h.postWireMessage)
 
 	router.Run("localhost:8080")
