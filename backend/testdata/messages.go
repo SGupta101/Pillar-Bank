@@ -10,18 +10,6 @@ var ValidMessages = []struct {
 	Expected    models.WireMessage
 }{
 	{
-		Name:        "Valid wire message seq 5",
-		WireMessage: "seq=5;sender_rtn=021000021;sender_an=629385443170308;receiver_rtn=121145307;receiver_an=136657407199052;amount=6666",
-		Expected: models.WireMessage{
-			Seq:         5,
-			SenderRTN:   "021000021",
-			SenderAN:    "629385443170308",
-			ReceiverRTN: "121145307",
-			ReceiverAN:  "136657407199052",
-			Amount:      6666,
-		},
-	},
-	{
 		Name:        "Valid wire message seq 1",
 		WireMessage: "seq=1;sender_rtn=021000021;sender_an=537646894897833;receiver_rtn=121145307;receiver_an=669907820975207;amount=3424",
 		Expected: models.WireMessage{
@@ -67,6 +55,18 @@ var ValidMessages = []struct {
 			ReceiverRTN: "121145307",
 			ReceiverAN:  "136657407199052",
 			Amount:      1034,
+		},
+	},
+	{
+		Name:        "Valid wire message seq 5",
+		WireMessage: "seq=5;sender_rtn=021000021;sender_an=629385443170308;receiver_rtn=121145307;receiver_an=136657407199052;amount=6666",
+		Expected: models.WireMessage{
+			Seq:         5,
+			SenderRTN:   "021000021",
+			SenderAN:    "629385443170308",
+			ReceiverRTN: "121145307",
+			ReceiverAN:  "136657407199052",
+			Amount:      6666,
 		},
 	},
 }

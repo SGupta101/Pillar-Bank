@@ -173,16 +173,14 @@ func (h *Handler) postWireMessage(c *gin.Context) {
 }
 
 func (h *Handler) getWireMessages(c *gin.Context) {
-	var wireMessages []models.WireMessage
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
-
-	if err != nil || page < 0 {
+	if err != nil || page < 1 {
 		handleError(c, http.StatusBadRequest, "Invalid page number")
 		return
 	}
 
 	limit, err := strconv.Atoi(c.DefaultQuery("limit", "10"))
-	if err != nil || limit < 0 {
+	if err != nil || limit < 1 {
 		handleError(c, http.StatusBadRequest, "Invalid limit number")
 		return
 	}
@@ -197,6 +195,7 @@ func (h *Handler) getWireMessages(c *gin.Context) {
 	}
 	defer rows.Close()
 
+	var wireMessages []models.WireMessage
 	for rows.Next() {
 		var wm models.WireMessage
 		err := rows.Scan(&wm.ID, &wm.Seq, &wm.SenderRTN, &wm.SenderAN, &wm.ReceiverRTN, &wm.ReceiverAN, &wm.Amount, &wm.RawMessage, &wm.CreatedAt)

@@ -111,7 +111,7 @@ func TestGetWireMessage(t *testing.T) {
 	router.GET("/wire-message/:seq", h.getWireMessage)
 
 	t.Run("Get existing wire message", func(t *testing.T) {
-		req, _ := http.NewRequest(http.MethodGet, "/wire-message/5", nil)
+		req, _ := http.NewRequest(http.MethodGet, "/wire-message/2", nil)
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -120,8 +120,7 @@ func TestGetWireMessage(t *testing.T) {
 		err := json.Unmarshal(w.Body.Bytes(), &response)
 		assert.NoError(t, err)
 
-		// We know this message exists from TestPostWireMessage
-		expectedMessage := testdata.ValidMessages[0].Expected
+		expectedMessage := testdata.ValidMessages[1].Expected
 		assert.Equal(t, expectedMessage.Seq, response.Seq)
 		assert.Equal(t, expectedMessage.SenderRTN, response.SenderRTN)
 		assert.Equal(t, expectedMessage.SenderAN, response.SenderAN)
@@ -130,7 +129,6 @@ func TestGetWireMessage(t *testing.T) {
 		assert.Equal(t, expectedMessage.Amount, response.Amount)
 	})
 
-	// Test getting a non-existent message
 	t.Run("Get non-existent wire message", func(t *testing.T) {
 		req, _ := http.NewRequest(http.MethodGet, "/wire-message/999", nil)
 		w := httptest.NewRecorder()
@@ -142,4 +140,110 @@ func TestGetWireMessage(t *testing.T) {
 }
 
 func TestGetWireMessages(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := &Handler{db: setupTestDB()}
+	router := gin.Default()
+	router.GET("/wire-messages", h.getWireMessages)
+
+	t.Run("Get all wire messages", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/wire-messages", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response []models.WireMessage
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+
+		assert.Equal(t, len(testdata.ValidMessages), len(response))
+		for i, msg := range response {
+			assert.Equal(t, testdata.ValidMessages[i].Expected.Seq, msg.Seq)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.SenderRTN, msg.SenderRTN)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.SenderAN, msg.SenderAN)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.ReceiverRTN, msg.ReceiverRTN)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.ReceiverAN, msg.ReceiverAN)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.Amount, msg.Amount)
+		}
+	})
+
+	t.Run("Get invalid page number", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/wire-messages?page=0&limit=2", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.JSONEq(t, `{"error": "Invalid page number"}`, w.Body.String())
+	})
+
+	t.Run("Get invalid limit number", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/wire-messages?page=1&limit=-2", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusBadRequest, w.Code)
+		assert.JSONEq(t, `{"error": "Invalid limit number"}`, w.Body.String())
+	})
+
+	t.Run("Get wire messages page 1 with limit 2", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/wire-messages?page=1&limit=2", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response []models.WireMessage
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 2, len(response))
+		for i, msg := range response {
+			assert.Equal(t, testdata.ValidMessages[i].Expected.Seq, msg.Seq)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.SenderRTN, msg.SenderRTN)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.SenderAN, msg.SenderAN)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.ReceiverRTN, msg.ReceiverRTN)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.ReceiverAN, msg.ReceiverAN)
+			assert.Equal(t, testdata.ValidMessages[i].Expected.Amount, msg.Amount)
+		}
+	})
+
+	t.Run("Get wire messages page 2 with limit 2", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/wire-messages?page=2&limit=2", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response []models.WireMessage
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 2, len(response))
+		for i, msg := range response {
+			assert.Equal(t, testdata.ValidMessages[i+2].Expected.Seq, msg.Seq)
+			assert.Equal(t, testdata.ValidMessages[i+2].Expected.SenderRTN, msg.SenderRTN)
+			assert.Equal(t, testdata.ValidMessages[i+2].Expected.SenderAN, msg.SenderAN)
+			assert.Equal(t, testdata.ValidMessages[i+2].Expected.ReceiverRTN, msg.ReceiverRTN)
+			assert.Equal(t, testdata.ValidMessages[i+2].Expected.ReceiverAN, msg.ReceiverAN)
+			assert.Equal(t, testdata.ValidMessages[i+2].Expected.Amount, msg.Amount)
+		}
+	})
+
+	t.Run("Get wire messages page 3 with limit 2", func(t *testing.T) {
+		req, _ := http.NewRequest(http.MethodGet, "/wire-messages?page=3&limit=2", nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		var response []models.WireMessage
+		err := json.Unmarshal(w.Body.Bytes(), &response)
+		assert.NoError(t, err)
+
+		assert.Equal(t, 1, len(response))
+		for i, msg := range response {
+			assert.Equal(t, testdata.ValidMessages[i+4].Expected.Seq, msg.Seq)
+			assert.Equal(t, testdata.ValidMessages[i+4].Expected.SenderRTN, msg.SenderRTN)
+			assert.Equal(t, testdata.ValidMessages[i+4].Expected.SenderAN, msg.SenderAN)
+			assert.Equal(t, testdata.ValidMessages[i+4].Expected.ReceiverRTN, msg.ReceiverRTN)
+			assert.Equal(t, testdata.ValidMessages[i+4].Expected.ReceiverAN, msg.ReceiverAN)
+			assert.Equal(t, testdata.ValidMessages[i+4].Expected.Amount, msg.Amount)
+		}
+	})
 }
