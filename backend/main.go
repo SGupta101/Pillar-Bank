@@ -9,6 +9,7 @@ import (
 	"strings"
 	"unicode"
 
+	"pillar-bank/auth"
 	"pillar-bank/models"
 
 	"github.com/gin-gonic/gin"
@@ -32,7 +33,20 @@ func main() {
 	}
 	defer db.Close()
 
-	err = db.Ping()
+	// Create table if it doesn't exist
+	_, err = db.Exec(`
+        CREATE TABLE IF NOT EXISTS wire_messages (
+            id SERIAL PRIMARY KEY,
+            seq INTEGER UNIQUE NOT NULL,
+            sender_rtn VARCHAR(9) NOT NULL,
+            sender_an VARCHAR(255) NOT NULL,
+            receiver_rtn VARCHAR(9) NOT NULL,
+            receiver_an VARCHAR(255) NOT NULL,
+            amount INTEGER NOT NULL,
+            raw_message TEXT NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    `)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -49,11 +63,37 @@ func main() {
 		})
 	})
 
-	router.GET("/wire-messages", h.getWireMessages)
-	router.GET("/wire-message/:seq", h.getWireMessage)
-	router.POST("/wire-messages", h.postWireMessage)
+	// Create route for user authentication
+	router.POST("/login", login)
+	router.GET("/wire-messages", auth.AuthenticateMiddleware, h.getWireMessages)
+	router.GET("/wire-message/:seq", auth.AuthenticateMiddleware, h.getWireMessage)
+	router.POST("/wire-messages", auth.AuthenticateMiddleware, h.postWireMessage)
 
 	router.Run("localhost:8080")
+}
+
+func login(c *gin.Context) {
+	username := c.PostForm("username")
+	password := c.PostForm("password")
+
+	// Consider using a map for credentials (still not secure, but cleaner)
+	validCredentials := map[string]string{
+		"user1": "password1",
+		"user2": "password2",
+	}
+
+	if storedPassword, exists := validCredentials[username]; exists && storedPassword == password {
+		tokenString, err := auth.CreateToken(username)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Error creating token"})
+			return
+		}
+
+		c.SetCookie("token", tokenString, 900, "/", "localhost", false, true) // 900 seconds = 15 minutes
+		c.JSON(http.StatusOK, gin.H{"message": "Successfully logged in"})
+	} else {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
+	}
 }
 
 func isInt(s string) bool {

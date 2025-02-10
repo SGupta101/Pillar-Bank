@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -20,7 +19,7 @@ import (
 
 func setupTestDB() *sql.DB {
 	// Use environment variables for test database
-	dbName := os.Getenv("TEST_DB_NAME")
+	dbName := "pillar_bank_test"
 	connStr := fmt.Sprintf("postgres://postgres@localhost:5432/%s?sslmode=disable", dbName)
 
 	db, err := sql.Open("postgres", connStr)
