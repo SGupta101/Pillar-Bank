@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -245,4 +246,38 @@ func TestGetWireMessages(t *testing.T) {
 			assert.Equal(t, testdata.ValidMessages[i+4].Expected.Amount, msg.Amount)
 		}
 	})
+}
+
+func TestLogin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.Default()
+	router.POST("/login", login)
+
+	t.Run("Valid credentials", func(t *testing.T) {
+		data := bytes.NewBufferString(`username=user1&password=password1`)
+		req, _ := http.NewRequest(http.MethodPost, "/login", data)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.JSONEq(t, `{"message":"Successfully logged in"}`, w.Body.String())
+
+		cookie := w.Result().Cookies()
+		assert.NotEmpty(t, cookie, "Cookie should be set")
+		assert.Equal(t, "token", cookie[0].Name)
+		assert.NotEmpty(t, cookie[0].Value, "Token should be set")
+	})
+
+	t.Run("Invalid credentials", func(t *testing.T) {
+		data := bytes.NewBufferString(`username=user1&password=wrong-password`)
+		req, _ := http.NewRequest(http.MethodPost, "/login", data)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		assert.Equal(t, http.StatusUnauthorized, w.Code)
+		assert.JSONEq(t, `{"error":"Invalid credentials"}`, w.Body.String())
+	})
+
 }

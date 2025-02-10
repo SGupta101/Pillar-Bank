@@ -62,15 +62,7 @@ func AuthenticateMiddleware(c *gin.Context) {
 
 	token, err := verifyToken(tokenString)
 	if err != nil {
-		if ve, ok := err.(*jwt.ValidationError); ok {
-			if ve.Errors&jwt.ValidationErrorExpired != 0 {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Token has expired"})
-			} else {
-				c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			}
-		} else {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-		}
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
 		c.Abort()
 		return
 	}
