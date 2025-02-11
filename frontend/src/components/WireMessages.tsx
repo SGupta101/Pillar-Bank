@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-// Define the type for a wire message
+// WireMessage defines the structure of a wire transfer message
 interface WireMessage {
   id: number;
   seq: number;
@@ -13,10 +13,13 @@ interface WireMessage {
   message: string;
 }
 
+// Number of wire messages to display per page
 const ITEMS_PER_PAGE = 5;
 
+// Backend API endpoint
 const API_URL = "http://localhost:8080";
 
+// WireMessages component handles displaying and creating wire messages
 const WireMessages = () => {
   const [messages, setMessages] = useState<WireMessage[]>([]);
   const [error, setError] = useState("");
@@ -24,6 +27,7 @@ const WireMessages = () => {
   const [hasMore, setHasMore] = useState(false);
   const navigate = useNavigate();
 
+  // State for new message form
   const [newMessage, setNewMessage] = useState({
     seq: "",
     sender_rtn: "",
@@ -33,15 +37,15 @@ const WireMessages = () => {
     amount: "",
   });
 
+  // Handle new message form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const messageString = `seq=${newMessage.seq};sender_rtn=${newMessage.sender_rtn};sender_an=${newMessage.sender_an};receiver_rtn=${newMessage.receiver_rtn};receiver_an=${newMessage.receiver_an};amount=${newMessage.amount}`;
-    console.log("Sending message:", messageString);
 
     try {
       const response = await fetch(`${API_URL}/wire-messages`, {
         method: "POST",
-        credentials: "include",
+        credentials: "include", // Required for cookies
         headers: {
           "Content-Type": "text/plain",
         },
@@ -50,9 +54,9 @@ const WireMessages = () => {
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error("Error response:", errorData);
         setError(errorData.error || "Failed to submit message");
       } else {
+        // Reset form and refresh messages on success
         fetchMessages();
         setNewMessage({
           seq: "",
@@ -64,11 +68,11 @@ const WireMessages = () => {
         });
       }
     } catch (error) {
-      console.error("Fetch error:", error);
       setError("Error submitting message");
     }
   };
 
+  // Handle form input changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setNewMessage({
       ...newMessage,
@@ -76,16 +80,17 @@ const WireMessages = () => {
     });
   };
 
+  // Fetch paginated wire messages from backend
   const fetchMessages = () => {
     fetch(
       `${API_URL}/wire-messages?page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
       {
-        credentials: "include",
+        credentials: "include", // Required for cookies
       }
     )
       .then((response) => {
         if (response.status === 401) {
-          navigate("/login");
+          navigate("/login"); // Redirect to login if unauthorized
           return;
         }
         return response.json();
@@ -102,11 +107,11 @@ const WireMessages = () => {
         }
       })
       .catch((err) => {
-        console.error("Error:", err);
         setError("Failed to fetch messages");
       });
   };
 
+  // Pagination handlers
   const handleNextPage = () => {
     setCurrentPage((prev) => prev + 1);
   };
@@ -115,6 +120,7 @@ const WireMessages = () => {
     setCurrentPage((prev) => Math.max(1, prev - 1));
   };
 
+  // Fetch messages when page changes
   useEffect(() => {
     fetchMessages();
   }, [currentPage, navigate]);
@@ -123,6 +129,8 @@ const WireMessages = () => {
     <div>
       <h2>Wire Messages</h2>
       {error && <div className="error">{error}</div>}
+
+      {/* New message form */}
       <div className="add-message-form">
         <h3>Add New Wire Message</h3>
         <form onSubmit={handleSubmit}>
@@ -177,6 +185,8 @@ const WireMessages = () => {
           <button type="submit">Add Message</button>
         </form>
       </div>
+
+      {/* Wire messages table */}
       <table>
         <thead>
           <tr>
@@ -201,6 +211,8 @@ const WireMessages = () => {
           ))}
         </tbody>
       </table>
+
+      {/* Pagination controls */}
       <div className="pagination">
         {currentPage > 1 && <button onClick={handlePrevPage}>Previous</button>}
         {hasMore && <button onClick={handleNextPage}>Next</button>}

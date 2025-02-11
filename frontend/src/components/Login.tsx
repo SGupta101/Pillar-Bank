@@ -9,12 +9,13 @@ const Login = () => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
+  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       const response = await fetch("http://localhost:8080/login", {
         method: "POST",
-        credentials: "include",
+        credentials: "include", // Required for cookies
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: `username=${credentials.username}&password=${credentials.password}`,
       });
@@ -26,6 +27,7 @@ const Login = () => {
     }
   };
 
+  // Handle input field changes
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setCredentials((prev) => ({ ...prev, [name]: value }));

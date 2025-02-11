@@ -17,6 +17,7 @@ import (
 	_ "github.com/lib/pq"
 )
 
+// Handler manages database operations
 type Handler struct {
 	db *sql.DB
 }
@@ -26,27 +27,12 @@ func handleError(c *gin.Context, status int, message string) {
 }
 
 func main() {
-	// Use environment variables or default values
+	// Get database configuration from environment
 	dbHost := os.Getenv("DB_HOST")
-	if dbHost == "" {
-		dbHost = "localhost"
-	}
 	dbUser := os.Getenv("DB_USER")
-	if dbUser == "" {
-		dbUser = "postgres"
-	}
 	dbPassword := os.Getenv("DB_PASSWORD")
-	if dbPassword == "" {
-		dbPassword = "postgres" // Change this to your local postgres password
-	}
 	dbName := os.Getenv("DB_NAME")
-	if dbName == "" {
-		dbName = "pillar_bank"
-	}
 	dbPort := os.Getenv("DB_PORT")
-	if dbPort == "" {
-		dbPort = "5432"
-	}
 
 	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
 		dbUser, dbPassword, dbHost, dbPort, dbName)
@@ -101,7 +87,6 @@ func main() {
 		})
 	})
 
-	// Create route for user authentication
 	router.POST("/login", login)
 	router.GET("/wire-messages", auth.AuthenticateMiddleware, h.getWireMessages)
 	router.GET("/wire-message/:seq", auth.AuthenticateMiddleware, h.getWireMessage)
@@ -110,11 +95,11 @@ func main() {
 	router.Run(":8080")
 }
 
+// login authenticates users and returns a JWT token
 func login(c *gin.Context) {
 	username := c.PostForm("username")
 	password := c.PostForm("password")
 
-	// Consider using a map for credentials (still not secure, but cleaner)
 	validCredentials := map[string]string{
 		"user1": "password1",
 		"user2": "password2",
@@ -127,13 +112,14 @@ func login(c *gin.Context) {
 			return
 		}
 
-		c.SetCookie("token", tokenString, 900, "/", "localhost", false, true) // 900 seconds = 15 minutes
+		c.SetCookie("token", tokenString, 900, "/", "localhost", false, true) // token expires in 15 minutes
 		c.JSON(http.StatusOK, gin.H{"message": "Successfully logged in"})
 	} else {
 		c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid credentials"})
 	}
 }
 
+// checks if a string is an integer
 func isInt(s string) bool {
 	for _, c := range s {
 		if !unicode.IsDigit(c) {
@@ -143,6 +129,7 @@ func isInt(s string) bool {
 	return true
 }
 
+// parseWireMessage validates and parses wire message string into structured data
 func parseWireMessage(message string) (models.WireMessage, error) {
 	wireMessage := models.WireMessage{}
 	parts := strings.Split(message, ";")
@@ -162,6 +149,7 @@ func parseWireMessage(message string) (models.WireMessage, error) {
 		key := strings.TrimSpace(keyValue[0])
 		value := strings.TrimSpace(keyValue[1])
 
+		// build wire message from parts with validation checking
 		switch key {
 		case "seq":
 			if !isInt(value) {
@@ -207,14 +195,15 @@ func parseWireMessage(message string) (models.WireMessage, error) {
 	return wireMessage, nil
 }
 
+// checks if a sequence number exists in the database
 func (h *Handler) sequenceNumberExists(seq int) (bool, error) {
 	var exists bool
 	err := h.db.QueryRow("SELECT EXISTS(SELECT 1 FROM wire_messages WHERE seq = $1)", seq).Scan(&exists)
 	return exists, err
 }
 
+// posts a wire message to the database
 func (h *Handler) postWireMessage(c *gin.Context) {
-	// Read the raw message directly from the body
 	message, err := c.GetRawData()
 	if err != nil {
 		handleError(c, http.StatusBadRequest, "Failed to read message")
@@ -228,6 +217,7 @@ func (h *Handler) postWireMessage(c *gin.Context) {
 		return
 	}
 
+	// check if the sequence number already exists in the database
 	exists, err := h.sequenceNumberExists(wireMessage.Seq)
 	if err != nil {
 		handleError(c, http.StatusInternalServerError, fmt.Sprintf("failed to check sequence number: %v", err))
@@ -238,6 +228,7 @@ func (h *Handler) postWireMessage(c *gin.Context) {
 		return
 	}
 
+	// insert the wire message into the database
 	query := `INSERT INTO wire_messages (seq, sender_rtn, sender_an, receiver_rtn, receiver_an, amount, raw_message) 
 			 VALUES ($1, $2, $3, $4, $5, $6, $7) 
 			 RETURNING id, created_at`
@@ -251,6 +242,7 @@ func (h *Handler) postWireMessage(c *gin.Context) {
 	c.IndentedJSON(http.StatusCreated, wireMessage)
 }
 
+// getWireMessages returns a paginated list of wire messages
 func (h *Handler) getWireMessages(c *gin.Context) {
 	page, err := strconv.Atoi(c.DefaultQuery("page", "1"))
 	if err != nil || page < 1 {
@@ -274,6 +266,7 @@ func (h *Handler) getWireMessages(c *gin.Context) {
 	}
 	defer rows.Close()
 
+	// get all wire messages from the database
 	var wireMessages []models.WireMessage
 	for rows.Next() {
 		var wm models.WireMessage
@@ -293,22 +286,26 @@ func (h *Handler) getWireMessages(c *gin.Context) {
 	c.IndentedJSON(http.StatusOK, wireMessages)
 }
 
+// gets a wire message from the database
 func (h *Handler) getWireMessage(c *gin.Context) {
 	var wireMessage models.WireMessage
 	seq := c.Param("seq")
 
+	// convert the sequence number to an integer
 	seqNum, err := strconv.Atoi(seq)
 	if err != nil {
 		handleError(c, http.StatusBadRequest, "Invalid sequence number format")
 		return
 	}
 
+	// get the wire message from the database
 	query := "SELECT * FROM wire_messages WHERE seq = $1;"
 	err = h.db.QueryRow(query, seqNum).Scan(
 		&wireMessage.ID, &wireMessage.Seq, &wireMessage.SenderRTN,
 		&wireMessage.SenderAN, &wireMessage.ReceiverRTN, &wireMessage.ReceiverAN,
 		&wireMessage.Amount, &wireMessage.RawMessage, &wireMessage.CreatedAt)
 
+	// if the wire message is not found, return a 404 error
 	if err != nil {
 		if err == sql.ErrNoRows {
 			handleError(c, http.StatusNotFound, "Wire message not found")

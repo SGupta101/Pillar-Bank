@@ -1,86 +1,107 @@
 # Pillar-Bank
 
-A simple wire dashboard and API for Pillar Bank N.A, where a user can login, see all wire messages, and submit new wire messages.
+A simple wire dashboard and API where users can:
+
+- Login to view wire messages
+- View paginated wire messages
+- Submit new wire messages
 
 ## Setup
 
-1. Install PostgreSQL if you haven't already:
+### Using Docker
 
-   ```bash
-   # For MacOS using Homebrew
-   brew install postgresql
+```bash
+# Clone the repository
+git clone https://github.com/yourusername/pillar-bank.git
+cd pillar-bank
 
-   # For Ubuntu/Debian
-   sudo apt-get install postgresql
-   ```
+# Start all services
+docker compose up --build
+```
 
-2. Create a new database:
+Visit http://localhost:3000 and login with:
 
-   ```bash
-   # Start PostgreSQL service
-   # MacOS:
-   brew services start postgresql
-   # Ubuntu:
-   sudo service postgresql start
+- Username: `user1`
+- Password: `password1`
 
-   # Create the database
-   createdb pillar_bank
-   createdb pillar_bank_test  # for running tests
-   ```
+### Manual Setup
 
-3. run the backend server
+1. **Prerequisites**
 
-   ```bash
-   go run backend/main.go
-   ```
+   - Node.js 18+
+   - Go 1.21+
+   - PostgreSQL 15+
 
-4. run the frontend server
+2. **Database Setup**
 
-   ```bash
-   cd frontend
-   npm install
-   npm start
-   ```
+```bash
+# Create databases
+createdb pillar_bank
+createdb pillar_bank_test  # for tests
+```
+
+3. **Run Backend**
+
+```bash
+cd backend
+go mod download
+go run main.go
+```
+
+4. **Run Frontend**
+
+```bash
+cd frontend
+npm install
+npm start
+```
 
 ## Testing
 
-To run the tests for the backend, run the following command:
-
 ```bash
-go test
-```
+# Backend tests
+cd backend
+go test ./...
 
-To run the tests for the auth, run the following command:
-
-```bash
-cd auth
-go test
-```
-
-To run the tests for the frontend, run the following command:
-
-```bash
+# Frontend tests
+cd frontend
 npm test
 ```
 
-## Notes
+## Project Structure
 
-- The backend is using a JWT token to authenticate requests.
-- The frontend is using a cookie to store the JWT token.
-- The backend is using a PostgreSQL database to store the wire messages.
-- The frontend is using a React frontend to display the wire messages.
+```
+.
+├── backend/
+│   ├── auth/       # JWT authentication
+│   ├── models/     # Data models
+│   ├── testdata/   # Tests
+│   └── main.go     # API endpoints
+└── frontend/
+    ├── src/
+    │   ├── components/  # React components
+    │   └── App.tsx     # Main app component
+    └── package.json
+```
 
-## Tools used to write submission
+## API Endpoints
+
+- `POST /login` - User authentication
+- `GET /wire-messages` - List wire messages (paginated)
+- `POST /wire-messages` - Create new wire message
+- `GET /wire-message/:seq` - Get specific wire message
+
+## Technologies Used
 
 - Cursor
-- Tutorials/Articles
-  - https://go.dev/doc/tutorial/web-service-gin
-  - https://www.calhoun.io/using-postgresql-with-go/
-  - https://go.dev/doc/tutorial/add-a-test
-  - https://permify.co/post/jwt-authentication-go/
-  - https://www.geeksforgeeks.org/how-to-use-react-with-typescript/
+- Frontend: React, TypeScript
+- Backend: Go, Gin
+- Database: PostgreSQL
+- Authentication: JWT
+- Containerization: Docker
 
 ## Future Improvements
 
-- Add testing for the frontend
-- Add logout/signup functionality
+- Add user registration
+- Add logout functionality
+- Add frontend tests
