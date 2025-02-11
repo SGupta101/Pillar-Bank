@@ -123,6 +123,8 @@ func isInt(s string) bool {
 func parseWireMessage(message string) (models.WireMessage, error) {
 	wireMessage := models.WireMessage{}
 	parts := strings.Split(message, ";")
+	fmt.Println("Received message:", message)
+	fmt.Println("Parts:", parts)
 
 	if len(parts) != 6 {
 		return wireMessage, fmt.Errorf("invalid message format: must contain all information")
@@ -189,16 +191,15 @@ func (h *Handler) sequenceNumberExists(seq int) (bool, error) {
 }
 
 func (h *Handler) postWireMessage(c *gin.Context) {
-	var request struct {
-		Message string `json:"message"`
-	}
-
-	if err := c.ShouldBindJSON(&request); err != nil {
-		handleError(c, http.StatusBadRequest, "Invalid request format")
+	// Read the raw message directly from the body
+	message, err := c.GetRawData()
+	if err != nil {
+		handleError(c, http.StatusBadRequest, "Failed to read message")
 		return
 	}
 
-	wireMessage, err := parseWireMessage(request.Message)
+	// Parse the wire message from the raw string
+	wireMessage, err := parseWireMessage(string(message))
 	if err != nil {
 		handleError(c, http.StatusBadRequest, err.Error())
 		return

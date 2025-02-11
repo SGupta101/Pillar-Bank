@@ -58,7 +58,6 @@ func TestPostWireMessage(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	db := setupTestDB()
 
-	// Clean the database before posting messages
 	err := cleanTestDB(db)
 	if err != nil {
 		t.Fatal(err)
@@ -70,9 +69,9 @@ func TestPostWireMessage(t *testing.T) {
 
 	for _, tt := range testdata.ValidMessages {
 		t.Run(tt.Name, func(t *testing.T) {
-			reqBody := fmt.Sprintf(`{"message": "%s"}`, tt.WireMessage)
-			req, _ := http.NewRequest(http.MethodPost, "/wire-messages", strings.NewReader(reqBody))
-			req.Header.Set("Content-Type", "application/json")
+			// Send the wire message directly without JSON wrapping
+			req, _ := http.NewRequest(http.MethodPost, "/wire-messages", strings.NewReader(tt.WireMessage))
+			req.Header.Set("Content-Type", "text/plain")
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 
@@ -81,7 +80,7 @@ func TestPostWireMessage(t *testing.T) {
 			err := json.Unmarshal(w.Body.Bytes(), &response)
 			assert.NoError(t, err)
 
-			// Check all fields
+			// Rest of the assertions remain the same
 			assert.Equal(t, tt.Expected.Seq, response.Seq, "seq mismatch")
 			assert.Equal(t, tt.Expected.SenderRTN, response.SenderRTN, "senderRTN mismatch")
 			assert.Equal(t, tt.Expected.SenderAN, response.SenderAN, "senderAN mismatch")
@@ -93,9 +92,9 @@ func TestPostWireMessage(t *testing.T) {
 
 	for _, tt := range testdata.InvalidMessages {
 		t.Run(tt.Name, func(t *testing.T) {
-			reqBody := fmt.Sprintf(`{"message": "%s"}`, tt.WireMessage)
-			req, _ := http.NewRequest(http.MethodPost, "/wire-messages", strings.NewReader(reqBody))
-			req.Header.Set("Content-Type", "application/json")
+			// Send invalid messages directly without JSON wrapping
+			req, _ := http.NewRequest(http.MethodPost, "/wire-messages", strings.NewReader(tt.WireMessage))
+			req.Header.Set("Content-Type", "text/plain")
 			w := httptest.NewRecorder()
 			router.ServeHTTP(w, req)
 			assert.Equal(t, http.StatusBadRequest, w.Code)
