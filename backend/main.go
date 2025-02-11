@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"strings"
 	"unicode"
@@ -25,7 +26,30 @@ func handleError(c *gin.Context, status int, message string) {
 }
 
 func main() {
-	connStr := "postgres://postgres@localhost:5432/pillar_bank?sslmode=disable"
+	// Use environment variables or default values
+	dbHost := os.Getenv("DB_HOST")
+	if dbHost == "" {
+		dbHost = "localhost"
+	}
+	dbUser := os.Getenv("DB_USER")
+	if dbUser == "" {
+		dbUser = "postgres"
+	}
+	dbPassword := os.Getenv("DB_PASSWORD")
+	if dbPassword == "" {
+		dbPassword = "postgres" // Change this to your local postgres password
+	}
+	dbName := os.Getenv("DB_NAME")
+	if dbName == "" {
+		dbName = "pillar_bank"
+	}
+	dbPort := os.Getenv("DB_PORT")
+	if dbPort == "" {
+		dbPort = "5432"
+	}
+
+	connStr := fmt.Sprintf("postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		dbUser, dbPassword, dbHost, dbPort, dbName)
 
 	db, err := sql.Open("postgres", connStr)
 	if err != nil {
@@ -83,7 +107,7 @@ func main() {
 	router.GET("/wire-message/:seq", auth.AuthenticateMiddleware, h.getWireMessage)
 	router.POST("/wire-messages", auth.AuthenticateMiddleware, h.postWireMessage)
 
-	router.Run("localhost:8080")
+	router.Run(":8080")
 }
 
 func login(c *gin.Context) {

@@ -15,6 +15,8 @@ interface WireMessage {
 
 const ITEMS_PER_PAGE = 5;
 
+const API_URL = "http://localhost:8080";
+
 const WireMessages = () => {
   const [messages, setMessages] = useState<WireMessage[]>([]);
   const [error, setError] = useState("");
@@ -37,7 +39,7 @@ const WireMessages = () => {
     console.log("Sending message:", messageString);
 
     try {
-      const response = await fetch("http://localhost:8080/wire-messages", {
+      const response = await fetch(`${API_URL}/wire-messages`, {
         method: "POST",
         credentials: "include",
         headers: {
@@ -76,7 +78,7 @@ const WireMessages = () => {
 
   const fetchMessages = () => {
     fetch(
-      `http://localhost:8080/wire-messages?page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
+      `${API_URL}/wire-messages?page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
       {
         credentials: "include",
       }
