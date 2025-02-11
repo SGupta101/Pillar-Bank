@@ -17,6 +17,7 @@ func TestCreateToken(t *testing.T) {
 	assert.NotEmpty(t, token)
 }
 
+// tests AuthenticateMiddleware with valid and invalid tokens
 func TestAuthenticateMiddleware(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.Default()
@@ -46,7 +47,7 @@ func TestAuthenticateMiddleware(t *testing.T) {
 				claims := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 					"sub": "user1",
 					"iss": "pillar-bank",
-					"exp": time.Now().Add(-time.Minute).Unix(),
+					"exp": time.Now().Add(-time.Minute).Unix(), // expired 1 minute ago
 					"iat": time.Now().Add(-time.Minute).Unix(),
 				})
 				tokenString, _ := claims.SignedString(secretKey)
@@ -88,6 +89,7 @@ func TestAuthenticateMiddleware(t *testing.T) {
 		},
 	}
 
+	// runs tests for each case
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			req, _ := http.NewRequest("GET", "/test", nil)

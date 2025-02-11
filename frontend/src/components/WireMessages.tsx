@@ -13,9 +13,13 @@ interface WireMessage {
   message: string;
 }
 
+const ITEMS_PER_PAGE = 5;
+
 const WireMessages = () => {
   const [messages, setMessages] = useState<WireMessage[]>([]);
   const [error, setError] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
   const navigate = useNavigate();
 
   const [newMessage, setNewMessage] = useState({
@@ -71,9 +75,12 @@ const WireMessages = () => {
   };
 
   const fetchMessages = () => {
-    fetch("http://localhost:8080/wire-messages", {
-      credentials: "include", // This sends the JWT cookie
-    })
+    fetch(
+      `http://localhost:8080/wire-messages?page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
+      {
+        credentials: "include",
+      }
+    )
       .then((response) => {
         if (response.status === 401) {
           navigate("/login");
@@ -82,11 +89,12 @@ const WireMessages = () => {
         return response.json();
       })
       .then((data) => {
-        console.log("Received data:", data);
         if (Array.isArray(data)) {
           setMessages(data);
+          setHasMore(data.length === ITEMS_PER_PAGE);
         } else if (data && data.message === "No wire messages found") {
           setMessages([]);
+          setHasMore(false);
         } else {
           setError("Unexpected data format");
         }
@@ -97,9 +105,17 @@ const WireMessages = () => {
       });
   };
 
+  const handleNextPage = () => {
+    setCurrentPage((prev) => prev + 1);
+  };
+
+  const handlePrevPage = () => {
+    setCurrentPage((prev) => Math.max(1, prev - 1));
+  };
+
   useEffect(() => {
     fetchMessages();
-  }, [navigate]);
+  }, [currentPage, navigate]);
 
   return (
     <div>
@@ -183,6 +199,10 @@ const WireMessages = () => {
           ))}
         </tbody>
       </table>
+      <div className="pagination">
+        {currentPage > 1 && <button onClick={handlePrevPage}>Previous</button>}
+        {hasMore && <button onClick={handleNextPage}>Next</button>}
+      </div>
     </div>
   );
 };
