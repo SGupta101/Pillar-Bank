@@ -256,8 +256,24 @@ func (h *Handler) getWireMessages(c *gin.Context) {
 		return
 	}
 
+	sortColumn := c.DefaultQuery("sort", "seq") // Default sort column
+	validSortColumns := []string{"seq", "sender_rtn", "sender_an", "receiver_rtn", "receiver_an", "amount"}
+
+	// Validate sort column
+	isValidSort := false
+	for _, col := range validSortColumns {
+		if col == sortColumn {
+			isValidSort = true
+			break
+		}
+	}
+	if !isValidSort {
+		handleError(c, http.StatusBadRequest, "Invalid sort column")
+		return
+	}
+
 	offset := (page - 1) * limit
-	query := "SELECT * FROM wire_messages ORDER BY seq ASC LIMIT $1 OFFSET $2"
+	query := fmt.Sprintf("SELECT * FROM wire_messages ORDER BY %s ASC LIMIT $1 OFFSET $2", sortColumn)
 	rows, err := h.db.Query(query, limit, offset)
 
 	if err != nil {

@@ -25,6 +25,7 @@ const WireMessages = () => {
   const [error, setError] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [sortColumn, setSortColumn] = useState("seq");
   const navigate = useNavigate();
 
   // State for new message form
@@ -83,7 +84,8 @@ const WireMessages = () => {
   // Fetch paginated wire messages from backend
   const fetchMessages = () => {
     fetch(
-      `${API_URL}/wire-messages?page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
+      // `${API_URL}/wire-messages?page=${currentPage}&limit=${ITEMS_PER_PAGE}`,
+      `${API_URL}/wire-messages?page=${currentPage}&limit=${ITEMS_PER_PAGE}&sort=${sortColumn}`,
       {
         credentials: "include", // Required for cookies
       }
@@ -120,10 +122,10 @@ const WireMessages = () => {
     setCurrentPage((prev) => Math.max(1, prev - 1));
   };
 
-  // Fetch messages when page changes
+  // Fetch messages when page changes or sort column changes
   useEffect(() => {
     fetchMessages();
-  }, [currentPage, navigate]);
+  }, [currentPage, navigate, sortColumn]);
 
   return (
     <div>
@@ -216,6 +218,27 @@ const WireMessages = () => {
       <div className="pagination">
         {currentPage > 1 && <button onClick={handlePrevPage}>Previous</button>}
         {hasMore && <button onClick={handleNextPage}>Next</button>}
+      </div>
+
+      {/* Column selector */}
+      <div className="column-selector">
+        <label>
+          Sort by:
+          <select
+            value={sortColumn}
+            onChange={(e) => {
+              setSortColumn(e.target.value);
+              setCurrentPage(1); // Reset to the first page when sorting changes
+            }}
+          >
+            <option value="seq">Sequence</option>
+            <option value="sender_rtn">Sender RTN</option>
+            <option value="sender_an">Sender Account</option>
+            <option value="receiver_rtn">Receiver RTN</option>
+            <option value="receiver_an">Receiver Account</option>
+            <option value="amount">Amount</option>
+          </select>
+        </label>
       </div>
     </div>
   );
