@@ -6,6 +6,9 @@ A simple wire dashboard and API where users can:
 - View paginated wire messages
 - Submit new wire messages
 
+## 🎥 Demo
+[Watch the Demo](https://drive.google.com/file/d/15byFnmmt_zxys7GHvLFWKPkZw5r81Anw/view?usp=sharing)
+
 ## Setup
 
 ### Using Docker
